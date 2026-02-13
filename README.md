@@ -149,7 +149,7 @@ I learned to build this entire architecture using **Cloudflare documentation and
 cd app/worker
 npm install
 npm run dev
-# Worker runs on http://localhost:8787
+# Worker runs on a local host (ex: http://localhost:8787)
 
 ### 2) Start the Pages UI (chat frontend)
 cd ../web
