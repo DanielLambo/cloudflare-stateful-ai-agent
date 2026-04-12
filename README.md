@@ -1,164 +1,128 @@
-# Sales Objection Coach (Edge AI)
+# Sales Objection Coach — Edge AI
 
-This project is an AI-powered sales objection coaching tool built entirely on Cloudflare’s edge platform.  
-It helps sales reps respond to objections in real time, maintain structured deal context, and automatically generate call summaries and follow-ups.
+> A rep is mid-call. The prospect says: *"We're already talking to your competitor and they're 20% cheaper."*
+> Instead of fumbling or going off-script, they get a coached, speakable response in seconds — built on live deal context from earlier in the call.
+> That's what this tool does.
 
-The goal was to build something **practical, stateful, and fast**, not a generic chatbot.
+**Live demo:** [sales-objection-coach-web.pages.dev](https://sales-objection-coach-web.pages.dev)
+
+---
+
+<img width="1493" height="812" alt="image" src="https://github.com/user-attachments/assets/bf801858-5180-4f65-b896-bbb85d4af108" />
+
 
 ---
 
 ## What This Does
 
-- Accepts live user input via a chat UI (Cloudflare Pages)
-- Maintains per-session memory using Durable Objects
-- Uses Workers AI (Llama 3.3) to generate:
-  - speakable sales responses
-  - structured deal memory
-  - end-of-call summaries, action items, and follow-up emails
-- Coordinates multi-step post-call processing using Cloudflare Workflows
+An AI-powered sales objection coaching tool built entirely on Cloudflare's edge platform. It helps sales reps respond to objections in real time, maintain structured deal context across a call, and automatically generate a summary, action items, and follow-up email when the call ends.
 
-Everything runs at the edge.
+- Live chat UI where the rep types what the customer just said
+- Coached, speakable responses generated in real time (2-3 sentences, designed to say out loud)
+- Deal Intelligence panel that extracts and tracks customer name, company, pain points, budget, and timeline as the conversation develops
+- Rolling summary that compresses call context without losing signal
+- Post-call report triggered on "End Call": summary bullets, action items with Rep/Customer ownership, and a ready-to-send follow-up email
 
 ---
 
 ## Why I Built This
 
-The inspiration for this comes from **my dad, who is a sales coach**. Growing up, I watched him help reps navigate tough conversations, and I wanted to see if I could capture some of that coaching intuition in software.
-
-I also wanted to build a project that:
-- demonstrated **real stateful AI**, not just stateless prompts
-- used Cloudflare primitives the way they’re meant to be used
-- solved a problem people immediately understand
+The inspiration comes from my dad, who is a sales coach. Growing up, I watched him help reps navigate tough conversations, and I wanted to see if I could capture some of that coaching intuition in software.
 
 Sales objections are a great test case for AI:
-- they’re conversational
-- they require memory
-- they benefit from structured reasoning, not just text generation
+- They're conversational
+- They require memory across a call
+- They benefit from structured reasoning, not just text generation
 
-This project intentionally avoids “chatbot demos” and focuses on **usable outputs**.
-
----
-
-## Architecture (High Level)
-
-- **Cloudflare Pages**  
-  Frontend Chat UI for user input and real-time session interaction.
-
-- **Workers AI (Llama 3.3)**  
-  Explicitly used for all inference: real-time responses, memory extraction, and summaries.
-
-- **Durable Objects (Coordination & State)**  
-  One object per session that stores **messages, rolling summaries, and structured deal memory**.
-
-- **Cloudflare Workflows**  
-  Handles end-of-call processing (summary generation and email drafting) as a durable pipeline.
-
-- **Cloudflare Workers**  
-  Public API layer handling routing, validation, and orchestration.
+This project intentionally avoids generic chatbot demos and focuses on outputs a rep can actually use mid-call.
 
 ---
 
-## Key Design Decisions (and Why)
+## Architecture
 
-### Stateful AI via Durable Objects
-I chose Durable Objects instead of external storage to keep:
-- latency low
-- session ownership clear
-- memory tightly scoped per conversation
+```
+Cloudflare Pages         →  React/Vite chat UI, edge-deployed
+Cloudflare Workers       →  API layer: routing, validation, all AI orchestration
+Workers AI (Llama 3.3)   →  Inference: coached replies, deal memory extraction, post-call report
+Workers KV               →  Per-session state: messages, deal memory, rolling summary (7-day TTL)
+```
 
-This avoids global state, race conditions, and over-fetching.
-
----
-
-### Rolling Summaries Instead of Full History
-Early versions stored full conversation history, which quickly became noisy and expensive.
-
-I replaced that with:
-- a rolling summary
-- bounded recent messages
-
-This keeps context useful and memory predictable.
+All inference and state management runs at the edge — no external databases, no third-party AI APIs, no servers to manage.
 
 ---
 
-### Plain-Text Responses (Not Forced JSON)
-I initially forced strict JSON outputs from the model for chat replies.
+## Key Design Decisions
 
-That caused brittle parsing and repetitive fallback responses.
+**Session state via Workers KV**
+Each session is stored as a JSON object under a `sessionId` key with a 7-day TTL. Reading and writing on every request keeps state simple, scoped, and cost-free on the free tier — no race conditions, no global state.
 
-I fixed this by:
-- allowing natural language for replies
-- using structured extraction only where structure actually matters (deal memory, summaries)
+**Rolling summaries instead of full history**
+Full conversation history quickly becomes noisy and expensive to pass to the model. Every 3 user turns, a second LLM call extracts structured deal memory and compresses context into a rolling summary. The message window is capped at 40 to prevent unbounded growth.
 
-This dramatically improved response quality.
+**Plain-text replies, structured extraction only where it matters**
+Forcing strict JSON from the model for chat replies caused brittle parsing and repetitive fallbacks. Natural language is used for coached responses. Structured extraction (deal memory, summaries, post-call report) is handled in separate targeted LLM calls.
+
+**Synchronous post-call pipeline**
+The end-of-call report runs three sequential LLM calls (summary → action items → follow-up email) directly in the Worker and returns the result immediately. No polling, no background jobs.
+
+**UI designed around the use case**
+Bubbles are labeled "Customer objection" and "Coach suggests saying" — one glance makes the flow obvious. Coach replies have an orange border as a visual cue that this is a script to read aloud, not a chat response. Follow-up chips copy to clipboard instead of populating the input, so the rep says them to the customer rather than sending them back into the chat.
 
 ---
 
 ## Mistakes I Made (and Fixed)
 
-- **Over-constraining model output**  
-  Fixed by separating conversational text from structured extraction.
+**Started with Durable Objects and Cloudflare Workflows**
+Durable Objects require a paid Workers plan. Workflows are still maturing. Refactored to Workers KV + synchronous pipeline — simpler, free tier compatible, and actually easier to reason about.
 
-- **State fields becoming `null` after schema changes**  
-  Fixed by merging stored state with defaults on load.
+**Over-constraining model output**
+Initially forced strict JSON for all model responses. Fixed by separating conversational replies from structured data extraction — each handled differently with appropriate prompts.
 
-- **Unbounded message growth**  
-  Fixed by summarizing and trimming history intentionally.
+**State fields going null after schema changes**
+Fixed by merging stored KV state with defaults on every load.
 
-These mistakes directly improved the final design.
+**Follow-up chips creating a chat loop**
+Originally chips populated the input field, which caused the AI to answer its own follow-up questions. Fixed by making chips copy-to-clipboard only — the rep reads them and says them to the customer.
 
----
-
-## Founder’s Marker
-
-This project is intentionally opinionated:
-
-- responses are short and speakable
-- memory is structured like a real rep thinks, not raw logs
-- the UI shows only what’s actionable
-
-A small easter egg:  
-The UI color palette intentionally mirrors **Cloudflare’s brand colors** — orange accents with calm blues — as a nod to building *for* the platform, not just *on* it.
+**Unbounded message growth**
+Fixed by capping history at 40 messages and summarizing proactively every 3 turns.
 
 ---
 
-## Why Cloudflare
+## Running Locally
 
-This project only works cleanly because of Cloudflare’s primitives:
-- Durable Objects for session memory
-- Workers AI for low-latency inference
-- Workflows for durable coordination
-- Pages for edge-native UI
-
-Building this elsewhere would require stitching together multiple services.
-
----
-
-## About Me
-
-I’m a college student focused on systems, ML infrastructure, and building things end to end.  
-This project reflects how I like to work: iterate, break things, fix them, and arrive at a clean, intentional design.
-
-I learned to build this entire architecture using **Cloudflare documentation and the tutorials on the Cloudflare website**.
-
----
-
-## Running locally
-
-### 1) Start the Worker (API + Durable Objects + Workflows)
+**1. Start the Worker**
+```bash
 cd app/worker
 npm install
 npm run dev
-# Worker runs on a local host (ex: http://localhost:8787)
+# Runs on http://localhost:8787
+```
 
-### 2) Start the Pages UI (chat frontend)
-cd ../web
+**2. Start the frontend**
+```bash
+cd app/web
+cp .env.example .env   # set VITE_API_BASE=http://localhost:8787 for local dev
 npm install
 npm run dev
-# UI runs on the printed localhost URL (ex: http://localhost:5173)
+# Runs on http://localhost:5173
+```
 
-### 3) Try it
-- Type an objection (pricing, competitor, customer service)
-- Click "End Call" to trigger the Workflow
-- View generated summary/action items/email
+**3. Try it**
+- Type a sales objection: pricing, competitor, timing, stakeholder pushback
+- Watch deal memory populate in the left panel as the conversation develops
+- Click **End Call** to generate the post-call summary, action items, and follow-up email
 
+---
+
+## Deployment
+
+Worker is deployed on Cloudflare Workers. Frontend is on Cloudflare Pages.
+
+```bash
+# Deploy worker
+cd app/worker && wrangler deploy
+
+# Deploy frontend
+cd app/web && npm run build && wrangler pages deploy dist --project-name=sales-objection-coach-web
+```
