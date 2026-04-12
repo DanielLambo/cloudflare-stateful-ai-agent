@@ -1,4 +1,3 @@
-// src/agent.ts
 export type ChatMsg = { role: "system" | "user" | "assistant"; content: string };
 
 export type DealMemory = {
@@ -19,26 +18,28 @@ export type FinalOutputs = {
 } | null;
 
 export type AgentState = {
-    messages: ChatMsg[];
-    rollingSummary: string;   // compressed memory
-    dealMemory: DealMemory;   // structured memory
-    final: FinalOutputs;      // workflow output
-    userTurnCount: number;    // to decide when to refresh memory
+    messages: { role: "user" | "assistant"; content: string }[];
+    rollingSummary: string;
+    dealMemory: DealMemory;
+    final: FinalOutputs;
+    userTurnCount: number;
+};
+
+export const DEFAULT_DEAL_MEMORY: DealMemory = {
+    customerName: "",
+    company: "",
+    industry: "",
+    painPoints: [],
+    budget: "",
+    timeline: "",
+    objections: [],
+    nextSteps: [],
 };
 
 export const DEFAULT_STATE: AgentState = {
     messages: [],
     rollingSummary: "",
-    dealMemory: {
-        customerName: "",
-        company: "",
-        industry: "",
-        painPoints: [],
-        budget: "",
-        timeline: "",
-        objections: [],
-        nextSteps: [],
-    },
+    dealMemory: DEFAULT_DEAL_MEMORY,
     final: null,
     userTurnCount: 0,
 };
