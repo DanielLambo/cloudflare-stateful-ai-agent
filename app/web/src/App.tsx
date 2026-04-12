@@ -462,11 +462,12 @@ export default function App() {
                 </div>
 
                 <div className="p-5 space-y-5">
-                  <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-700">
-                    <p>✨ <strong>Practice objection handling</strong> with an AI coach</p>
-                    <p>📋 <strong>Auto deal tracking</strong> — name, budget, pain points</p>
-                    <p>🎯 <strong>Proven strategies</strong> for every objection type</p>
-                    <p>📊 <strong>Post-call report</strong> with summary + follow-up email</p>
+                  <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm text-slate-700">
+                    <p className="font-semibold text-slate-800 mb-1">How it works:</p>
+                    <p>1. <strong>You're the sales rep</strong> on a live call with a customer.</p>
+                    <p>2. <strong>Type what the customer says</strong> — their objection, concern, or pushback.</p>
+                    <p>3. <strong>The AI coach gives you a response</strong> to say back, word for word.</p>
+                    <p>4. <strong>"Ask next" suggestions</strong> are follow-up questions you can ask the customer to advance the deal.</p>
                   </div>
 
                   <div>
@@ -488,7 +489,7 @@ export default function App() {
                   </div>
 
                   <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                    <strong>Tip:</strong> Type any objection the customer raised and the coach will give you a response you can say out loud immediately.
+                    <strong>Tip:</strong> The coach's reply is a script — say it out loud to the customer. The "Ask next" chips are follow-up questions you ask them, not things to type here.
                   </p>
                 </div>
               </div>
@@ -515,23 +516,30 @@ export default function App() {
           {/* Messages */}
           {msgs.map((m, i) => (
             <div key={i} className={`flex flex-col w-full ${m.role === "user" ? "items-end" : "items-start"}`}>
+
+              {/* Role label */}
+              <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 px-1 ${
+                m.role === "user" ? "text-orange-400" : "text-slate-400"
+              }`}>
+                {m.role === "user" ? "Customer objection" : "Coach suggests saying"}
+              </p>
+
               <div className={`max-w-[80%] lg:max-w-[72%] rounded-2xl px-4 py-3 shadow-sm text-sm leading-relaxed ${
                 m.role === "user"
                   ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-tr-sm"
-                  : "bg-white border border-slate-200 text-slate-800 rounded-tl-sm"
+                  : "bg-white border-2 border-orange-200 text-slate-800 rounded-tl-sm"
               }`}>
                 {m.content}
               </div>
+
+              {/* Follow-up chips — copy-to-clipboard, not re-sent as messages */}
               {m.role === "assistant" && m.followUps && m.followUps.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2 max-w-[80%] lg:max-w-[72%]">
+                <div className="mt-2.5 max-w-[80%] lg:max-w-[72%] space-y-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-1">
+                    Ask next →
+                  </p>
                   {m.followUps.map((fu, j) => (
-                    <button
-                      key={j}
-                      onClick={() => { setInput(fu); inputRef.current?.focus(); }}
-                      className="text-xs px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 hover:border-orange-300 rounded-full transition-all"
-                    >
-                      {fu}
-                    </button>
+                    <FollowUpChip key={j} text={fu} />
                   ))}
                 </div>
               )}
@@ -559,28 +567,60 @@ export default function App() {
               {status}
             </div>
           )}
-          <div className="max-w-3xl mx-auto flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && send()}
-              placeholder="Type what the customer said..."
-              disabled={loading}
-              className="flex-1 bg-slate-50 border-2 border-slate-200 text-slate-900 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm disabled:opacity-50 placeholder:text-slate-400"
-            />
-            <button
-              onClick={() => send()}
-              disabled={!input.trim() || loading}
-              className="p-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shrink-0"
-            >
-              <Send size={18} />
-            </button>
+          <div className="max-w-3xl mx-auto space-y-2">
+            <p className="text-[11px] text-slate-400 font-medium px-1">
+              You're the <span className="text-orange-500 font-semibold">rep</span> — type what the customer just said, get a response to say back.
+            </p>
+            <div className="flex gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && send()}
+                placeholder="What did the customer say?"
+                disabled={loading}
+                className="flex-1 bg-slate-50 border-2 border-slate-200 text-slate-900 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm disabled:opacity-50 placeholder:text-slate-400"
+              />
+              <button
+                onClick={() => send()}
+                disabled={!input.trim() || loading}
+                className="p-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shrink-0"
+              >
+                <Send size={18} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// Follow-up chip — copies to clipboard, does NOT re-send as a message
+function FollowUpChip({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copy to clipboard — say this to the customer"
+      className={`w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs transition-all ${
+        copied
+          ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+          : "bg-orange-50 hover:bg-orange-100 border-orange-200 hover:border-orange-300 text-orange-800"
+      }`}
+    >
+      <span className="leading-relaxed">{text}</span>
+      <span className="shrink-0 flex items-center gap-1 font-semibold">
+        {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
+      </span>
+    </button>
   );
 }
 
