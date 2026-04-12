@@ -362,7 +362,7 @@ export default function App() {
         {/* Header */}
         <header className="h-16 border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 bg-white shadow-sm shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <img src="/logo.png" alt="Sales Coach AI" className="h-10 w-auto object-contain shrink-0" />
+            <img src="/salescoachAI.PNG" alt="Sales Coach AI" className="h-10 w-auto object-contain shrink-0" />
             <div className="min-w-0">
               <h1 className="font-bold text-base lg:text-lg text-slate-900 truncate">Sales Objection Coach</h1>
               <div className="flex items-center gap-2">
